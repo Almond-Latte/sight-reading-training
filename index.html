@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sight Reading Trainer</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vexflow/3.0.9/vexflow-min.js"></script>
+
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif; text-align: center; background-color: #f0f0f0; padding: 20px; padding-top: 50px; }
+        
+        /* ヘッダー周り */
+        .header-container { position: relative; margin-bottom: 20px; }
+        h1 { font-size: 1.4rem; margin: 0; color: #333; font-weight: 600; }
+        
+        /* 言語切り替えボタン */
+        #lang-toggle {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: #ddd;
+            border: none;
+            border-radius: 20px;
+            padding: 5px 10px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            font-weight: bold;
+            color: #555;
+        }
+
+        #sheet-music { 
+            background: white; 
+            border-radius: 10px; 
+            margin: 0 auto; 
+            display: inline-block; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+            width: 220px; 
+            height: 150px; 
+            position: relative;
+        }
+        #sheet-music svg {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .btn-container { margin-top: 20px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; max-width: 400px; margin-left: auto; margin-right: auto; }
+        button.answer-btn { padding: 15px 5px; font-size: 1.1rem; border: none; border-radius: 8px; background: #007AFF; color: white; cursor: pointer; touch-action: manipulation; font-weight: 600; }
+        button.answer-btn:active { background: #0056b3; }
+        #result { margin-top: 20px; font-weight: bold; height: 30px; color: #333; font-size: 1.2rem; }
+    </style>
+</head>
+<body>
+
+    <div class="header-container">
+        <h1>Sight Reading</h1>
+        <button id="lang-toggle" onclick="toggleLanguage()">あ/A</button>
+    </div>
+
+    <div id="sheet-music"></div>
+    <div id="result"></div>
+
+    <div class="btn-container">
+        <button class="answer-btn" id="btn-C" onclick="checkAnswer('C')">ド<br><small>(C)</small></button>
+        <button class="answer-btn" id="btn-D" onclick="checkAnswer('D')">レ<br><small>(D)</small></button>
+        <button class="answer-btn" id="btn-E" onclick="checkAnswer('E')">ミ<br><small>(E)</small></button>
+        <button class="answer-btn" id="btn-F" onclick="checkAnswer('F')">ファ<br><small>(F)</small></button>
+        <button class="answer-btn" id="btn-G" onclick="checkAnswer('G')">ソ<br><small>(G)</small></button>
+        <button class="answer-btn" id="btn-A" onclick="checkAnswer('A')">ラ<br><small>(A)</small></button>
+        <button class="answer-btn" id="btn-B" onclick="checkAnswer('B')">シ<br><small>(B)</small></button>
+    </div>
+
+    <script>
+        // --- PWA Service Worker ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('./sw.js');
+            });
+        }
+
+        // --- 言語設定 ---
+        let isJapanese = true;
+
+        const labels = {
+            C: { jp: "ド<br><small>(C)</small>", en: "C" },
+            D: { jp: "レ<br><small>(D)</small>", en: "D" },
+            E: { jp: "ミ<br><small>(E)</small>", en: "E" },
+            F: { jp: "ファ<br><small>(F)</small>", en: "F" },
+            G: { jp: "ソ<br><small>(G)</small>", en: "G" },
+            A: { jp: "ラ<br><small>(A)</small>", en: "A" },
+            B: { jp: "シ<br><small>(B)</small>", en: "B" }
+        };
+
+        function toggleLanguage() {
+            isJapanese = !isJapanese;
+            updateButtonLabels();
+        }
+
+        function updateButtonLabels() {
+            const keys = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+            keys.forEach(key => {
+                const btn = document.getElementById('btn-' + key);
+                btn.innerHTML = isJapanese ? labels[key].jp : labels[key].en;
+            });
+        }
+
+        // --- アプリ処理 ---
+        const VF = Vex.Flow;
+        let currentNote = null;
+        let renderer = null; 
+
+        const notesData = [
+            { keys: ["g/3"], answer: "G" },
+            { keys: ["a/3"], answer: "A" },
+            { keys: ["b/3"], answer: "B" },
+            { keys: ["c/4"], answer: "C" },
+            { keys: ["d/4"], answer: "D" },
+            { keys: ["e/4"], answer: "E" },
+            { keys: ["f/4"], answer: "F" },
+            { keys: ["g/4"], answer: "G" },
+            { keys: ["a/4"], answer: "A" },
+            { keys: ["b/4"], answer: "B" },
+            { keys: ["c/5"], answer: "C" },
+            { keys: ["d/5"], answer: "D" },
+            { keys: ["e/5"], answer: "E" },
+            { keys: ["f/5"], answer: "F" },
+            { keys: ["g/5"], answer: "G" },
+            { keys: ["a/5"], answer: "A" },
+            { keys: ["b/5"], answer: "B" }
+        ];
+
+        function drawNote() {
+            const div = document.getElementById("sheet-music");
+            div.innerHTML = ""; 
+            
+            const randomIndex = Math.floor(Math.random() * notesData.length);
+            currentNote = notesData[randomIndex];
+
+            renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
+            renderer.resize(220, 150);
+            const context = renderer.getContext();
+
+            const stave = new VF.Stave(10, 40, 200);
+            stave.addClef("treble").setContext(context).draw();
+            stave.setNoteStartX(100);
+
+            const note = new VF.StaveNote({ keys: currentNote.keys, duration: "q" });
+            const voice = new VF.Voice({num_beats: 1,  beat_value: 4});
+            voice.addTickables([note]);
+            new VF.Formatter().joinVoices([voice]).format([voice], 150);
+            voice.draw(context, stave);
+        }
+
+        function checkAnswer(userAnswer) {
+            const resultDiv = document.getElementById("result");
+            if (userAnswer === currentNote.answer) {
+                resultDiv.innerText = isJapanese ? "正解！" : "Good!";
+                resultDiv.style.color = "green";
+                setTimeout(() => {
+                    resultDiv.innerText = "";
+                    drawNote(); 
+                }, 500);
+            } else {
+                resultDiv.innerText = isJapanese ? "違います..." : "Try again...";
+                resultDiv.style.color = "red";
+            }
+        }
+
+        window.onload = function() {
+            drawNote();
+            updateButtonLabels();
+        };
+    </script>
+</body>
+</html>
